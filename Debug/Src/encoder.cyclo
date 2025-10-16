@@ -1,0 +1,3 @@
+../Src/encoder.c:11:6:ENC_Init	1
+../Src/encoder.c:28:6:ENC_Scan	5
+../Src/encoder.c:60:6:ENC_Update	3

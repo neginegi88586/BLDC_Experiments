@@ -1,0 +1,8 @@
+C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:31:23:q31_mul	3
+C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:54:23:q31_add_sat	3
+C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:64:23:q31_sub_sat	3
+../Src/foc.c:39:23:svm_sector_from_alphabeta_q31	7
+../Src/foc.c:75:20:svpwm_compute_T012_q31	10
+../Src/foc.c:142:6:FOC_Init	1
+../Src/foc.c:160:6:FOC_CurrentLoopStep	1
+../Src/foc.c:207:6:FOC_AlphaBetaToSVPWM	2
