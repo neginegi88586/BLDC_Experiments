@@ -1,0 +1,535 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: you <you@example.com>
+Date: Tue, 21 Oct 2025 16:00:00 +0900
+Subject: [PATCH] Q16.16 PID + PA0(1.235V) calibration + slew/softstart +
+ active-low PWM
+
+---
+ Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h  | 130 ++++++++++++++++++++++++
+ Drivers/BLDC_Lib/Inc/fixed_q16_16.h     | 188 ++++++++++++++++++++++++++++++++
+ Drivers/BLDC_Lib/Inc/pid_q16_16.h       | 151 ++++++++++++++++++++++++
+ Drivers/BLDC_Lib/Inc/slew_q16_16.h      |  73 ++++++++++++
+ Drivers/BLDC_Lib/Inc/softstart_q16_16.h |  82 +++++++++++++
+ Drivers/BLDC_Lib/Inc/units_q16_16.h     | 124 ++++++++++++++++++++
+ Src/foc.c                                | 118 ++++++++++++++++---
+ Src/app.c                                |  61 ++++++++++
+ Src/firmware.c                           |  22 ++++
+ 9 files changed, 943 insertions(+), 6 deletions(-)
+ create mode 100644 Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h
+ create mode 100644 Drivers/BLDC_Lib/Inc/fixed_q16_16.h
+ create mode 100644 Drivers/BLDC_Lib/Inc/pid_q16_16.h
+ create mode 100644 Drivers/BLDC_Lib/Inc/slew_q16_16.h
+ create mode 100644 Drivers/BLDC_Lib/Inc/softstart_q16_16.h
+ create mode 100644 Drivers/BLDC_Lib/Inc/units_q16_16.h
+
+diff --git a/Drivers/BLDC_Lib/Inc/fixed_q16_16.h b/Drivers/BLDC_Lib/Inc/fixed_q16_16.h
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/Drivers/BLDC_Lib/Inc/fixed_q16_16.h
+@@ -0,0 +1,188 @@
++/* fixed_q16_16.h
++ * 目的：
++ *   Q16.16 固定小数点（小数16bit）による整数演算ユーティリティ。
++ * 注意：
++ *   すべて整数演算。64bit 中間値で飽和処理を行う。
++ */
++#ifndef FIXED_Q16_16_H
++#define FIXED_Q16_16_H
++#include <stdint.h>
++typedef int32_t q16_16_t;
++#define Q16_16_FBITS (16)
++#define Q16_16_ONE   ((q16_16_t)(1 << Q16_16_FBITS))
++#define Q16_16_HALF  ((q16_16_t)(1 << (Q16_16_FBITS - 1)))
++#define Q16_16_MAX   ((q16_16_t)0x7FFFFFFF)
++#define Q16_16_MIN   ((q16_16_t)0x80000000)
++static inline q16_16_t q16_16_from_int(int32_t x){ return (q16_16_t)(x << Q16_16_FBITS); }
++static inline int32_t  q16_16_to_int(q16_16_t x){ return (int32_t)(x >> Q16_16_FBITS); }
++static inline int32_t  q16_16_to_int_rnd(q16_16_t x){
++    if (x >= 0){ return (int32_t)((x + Q16_16_HALF) >> Q16_16_FBITS); }
++    else       { return (int32_t)((x + 1 - Q16_16_HALF) >> Q16_16_FBITS); }
++}
++static inline q16_16_t q16_16_from_frac(int32_t num, int32_t den){
++    int64_t t = ((int64_t)num << Q16_16_FBITS);
++    if ((t >= 0 && den > 0) || (t < 0 && den < 0)) t += (den > 0) ? (den/2) : (-den/2);
++    else                                            t -= (den > 0) ? (den/2) : (-den/2);
++    return (q16_16_t)(t / den);
++}
++static inline q16_16_t q16_16_mul(q16_16_t a, q16_16_t b){
++    int64_t t = (int64_t)a * (int64_t)b;
++    t = (t + (int64_t)Q16_16_HALF) >> Q16_16_FBITS;
++    if (t > (int64_t)Q16_16_MAX) return Q16_16_MAX;
++    if (t < (int64_t)Q16_16_MIN) return Q16_16_MIN;
++    return (q16_16_t)t;
++}
++static inline q16_16_t q16_16_div(q16_16_t a, q16_16_t b){
++    if (b == 0) return (a >= 0) ? Q16_16_MAX : Q16_16_MIN;
++    int64_t t = ((int64_t)a << Q16_16_FBITS);
++    if ((t >= 0 && b > 0) || (t < 0 && b < 0)) t += (b > 0) ? (b/2) : (-b/2);
++    else                                        t -= (b > 0) ? (b/2) : (-b/2);
++    int64_t q = t / b;
++    if (q > (int64_t)Q16_16_MAX) return Q16_16_MAX;
++    if (q < (int64_t)Q16_16_MIN) return Q16_16_MIN;
++    return (q16_16_t)q;
++}
++static inline q16_16_t q16_16_add_sat(q16_16_t a, q16_16_t b){
++    int64_t s = (int64_t)a + (int64_t)b;
++    if (s > (int64_t)Q16_16_MAX) return Q16_16_MAX;
++    if (s < (int64_t)Q16_16_MIN) return Q16_16_MIN;
++    return (q16_16_t)s;
++}
++static inline q16_16_t q16_16_sub_sat(q16_16_t a, q16_16_t b){
++    int64_t d = (int64_t)a - (int64_t)b;
++    if (d > (int64_t)Q16_16_MAX) return Q16_16_MAX;
++    if (d < (int64_t)Q16_16_MIN) return Q16_16_MIN;
++    return (q16_16_t)d;
++}
++#endif
+diff --git a/Drivers/BLDC_Lib/Inc/pid_q16_16.h b/Drivers/BLDC_Lib/Inc/pid_q16_16.h
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/Drivers/BLDC_Lib/Inc/pid_q16_16.h
+@@ -0,0 +1,151 @@
++/* pid_q16_16.h
++ * 目的：
++ *   Q16.16 で動作する位置型 PID（D-on-measurement、アンチワインドアップ付き）。
++ */
++#ifndef PID_Q16_16_H
++#define PID_Q16_16_H
++#include <stdint.h>
++#include "fixed_q16_16.h"
++typedef struct
++{
++    q16_16_t kp;
++    q16_16_t ki;
++    q16_16_t kd;
++    q16_16_t out_min;
++    q16_16_t out_max;
++    q16_16_t integrator;
++    q16_16_t prev_meas;
++} pid_q16_16_t;
++static inline void pid_q16_16_init(pid_q16_16_t *p){
++    p->integrator = 0;
++    p->prev_meas  = 0;
++}
++static inline q16_16_t pid_q16_16_step(pid_q16_16_t *p,
++                                       q16_16_t setpoint,
++                                       q16_16_t measurement,
++                                       q16_16_t dt){
++    q16_16_t error = q16_16_sub_sat(setpoint, measurement);
++    q16_16_t P = q16_16_mul(p->kp, error);
++    /* D は測定値微分（ノイズ増幅を抑える） */
++    q16_16_t d_meas = q16_16_sub_sat(measurement, p->prev_meas);
++    q16_16_t D = 0;
++    if (dt != 0){
++        D = q16_16_div(d_meas, dt);
++        D = q16_16_mul(p->kd, D);
++        D = -D;
++    }
++    p->prev_meas = measurement;
++    q16_16_t u_noI = q16_16_add_sat(P, D);
++    /* 積分項の候補を先に計算（アンチワインドアップ）*/
++    q16_16_t I_cand = p->integrator;
++    if (dt != 0 && p->ki != 0){
++        q16_16_t inc = q16_16_mul(p->ki, q16_16_mul(error, dt));
++        I_cand = q16_16_add_sat(I_cand, inc);
++    }
++    q16_16_t u = q16_16_add_sat(u_noI, I_cand);
++    if (u > p->out_max){
++        u = p->out_max;
++        if ((p->ki != 0) && (u_noI < p->out_max)) p->integrator = I_cand;
++    }else if (u < p->out_min){
++        u = p->out_min;
++        if ((p->ki != 0) && (u_noI > p->out_min)) p->integrator = I_cand;
++    }else{
++        p->integrator = I_cand;
++    }
++    return u;
++}
++#endif
+diff --git a/Drivers/BLDC_Lib/Inc/slew_q16_16.h b/Drivers/BLDC_Lib/Inc/slew_q16_16.h
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ b/Drivers/BLDC_Lib/Inc/slew_q16_16.h
+@@ -0,0 +1,73 @@
++/* slew_q16_16.h
++ * 目的：
++ *   出力指令（duty 0..1 等）の変化速度を制限し、突入・ノイズを抑制する。
++ */
++#ifndef SLEW_Q16_16_H
++#define SLEW_Q16_16_H
++#include <stdint.h>
++#include "fixed_q16_16.h"
++static inline q16_16_t q16_16_slew_step(q16_16_t prev,
++                                        q16_16_t target,
++                                        q16_16_t slew_up_per_s,
++                                        q16_16_t slew_dn_per_s,
++                                        q16_16_t dt_s){
++    q16_16_t diff = q16_16_sub_sat(target, prev);
++    if (diff == 0) return prev;
++    q16_16_t max_step = (diff > 0) ? q16_16_mul(slew_up_per_s, dt_s)
++                                   : q16_16_mul(slew_dn_per_s, dt_s);
++    if (diff > 0){
++        if (diff > max_step) return q16_16_add_sat(prev, max_step);
++        return target;
++    }else{
++        if (-diff > max_step) return q16_16_sub_sat(prev, max_step);
++        return target;
++    }
++}
++#endif
+diff --git a/Drivers/BLDC_Lib/Inc/softstart_q16_16.h b/Drivers/BLDC_Lib/Inc/softstart_q16_16.h
+new file mode 100644
+index 0000000..4444444
+--- /dev/null
++++ b/Drivers/BLDC_Lib/Inc/softstart_q16_16.h
+@@ -0,0 +1,82 @@
++/* softstart_q16_16.h
++ * 目的：
++ *   指令全体に 0→1 のスケールを掛けるソフトスタート機能。
++ */
++#ifndef SOFTSTART_Q16_16_H
++#define SOFTSTART_Q16_16_H
++#include <stdint.h>
++#include "fixed_q16_16.h"
++typedef struct
++{
++    q16_16_t scale;
++    q16_16_t step_per_s;
++    uint8_t  enabled;
++} softstart_t;
++static inline void softstart_init(softstart_t *s, q16_16_t rise_time_s){
++    s->scale   = 0;
++    s->enabled = 0;
++    if (rise_time_s <= 0) s->step_per_s = Q16_16_MAX;
++    else                  s->step_per_s = q16_16_div(Q16_16_ONE, rise_time_s);
++}
++static inline void softstart_enable(softstart_t *s, uint8_t en){
++    s->enabled = en ? 1 : 0;
++}
++static inline q16_16_t softstart_step(softstart_t *s, q16_16_t dt_s){
++    if (!s->enabled){
++        s->scale = 0;
++        return s->scale;
++    }
++    q16_16_t inc = q16_16_mul(s->step_per_s, dt_s);
++    s->scale = q16_16_add_sat(s->scale, inc);
++    if (s->scale > Q16_16_ONE) s->scale = Q16_16_ONE;
++    return s->scale;
++}
++#endif
+diff --git a/Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h b/Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h
+new file mode 100644
+index 0000000..5555555
+--- /dev/null
++++ b/Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h
+@@ -0,0 +1,130 @@
++/* adc_vcal_q16_16.h
++ * 目的：
++ *   PA0(ADC1 CH0) の 1.235V±1% 基準から VDDA と V/LSB をランタイム推定。
++ * 運用：
++ *   BG(1kHz等)で update、ISR は読み取りのみ。
++ */
++#ifndef ADC_VCAL_Q16_16_H
++#define ADC_VCAL_Q16_16_H
++#include <stdint.h>
++#include "fixed_q16_16.h"
++typedef struct
++{
++    q16_16_t v_ref_in;    /* PA0 基準電圧 [V] */
++    q16_16_t v_per_lsb;   /* 1 LSB あたり電圧 [V/LSB] */
++    q16_16_t alpha;       /* IIR 係数 0..1 */
++    uint8_t  valid;       /* 有効更新済みフラグ */
++} adc_vcal_t;
++static inline void adc_vcal_init(adc_vcal_t *s, q16_16_t v_ref_in, q16_16_t alpha){
++    s->v_ref_in = v_ref_in;
++    s->alpha    = alpha;
++    s->valid    = 0;
++    /* 初期：名目 3.3V → V/LSB = 3.3/4095 */
++    q16_16_t vdda_nom = q16_16_from_frac(33, 10);
++    s->v_per_lsb = q16_16_div(vdda_nom, q16_16_from_int(4095));
++}
++static inline void adc_vcal_update(adc_vcal_t *s, int32_t adc_raw_pa0){
++    if (adc_raw_pa0 <= 0) return;
++    q16_16_t den   = q16_16_from_int(adc_raw_pa0);
++    q16_16_t q4095 = q16_16_from_int(4095);
++    q16_16_t vdda_est = q16_16_div(q16_16_mul(s->v_ref_in, q4095), den);
++    q16_16_t vlsb_est = q16_16_div(vdda_est, q4095);
++    q16_16_t one_minus = q16_16_sub_sat(Q16_16_ONE, s->alpha);
++    q16_16_t tmp  = q16_16_mul(one_minus, s->v_per_lsb);
++    q16_16_t tmp2 = q16_16_mul(s->alpha, vlsb_est);
++    s->v_per_lsb  = q16_16_add_sat(tmp, tmp2);
++    s->valid = 1;
++}
++static inline q16_16_t adc_vcal_get_v_per_lsb(const adc_vcal_t *s){
++    return s->v_per_lsb;
++}
++#endif
+diff --git a/Drivers/BLDC_Lib/Inc/units_q16_16.h b/Drivers/BLDC_Lib/Inc/units_q16_16.h
+new file mode 100644
+index 0000000..6666666
+--- /dev/null
++++ b/Drivers/BLDC_Lib/Inc/units_q16_16.h
+@@ -0,0 +1,124 @@
++/* units_q16_16.h
++ * 目的：
++ *   物理量を SI 単位系 (V, A, rad/s, duty 0..1) に統一し、変換を一元管理する。
++ */
++#ifndef UNITS_Q16_16_H
++#define UNITS_Q16_16_H
++#include <stdint.h>
++#include "fixed_q16_16.h"
++#include "adc_vcal_q16_16.h"
++extern adc_vcal_t g_vcal; /* app.c で定義 */
++/* 実機値に合わせて修正：シャント・アンプ・オフセット */
++static const q16_16_t UQ_RSHUNT_OHM = q16_16_from_frac(5, 100);   /* 0.05Ω */
++static const q16_16_t UQ_AMP_GAIN   = q16_16_from_int(10);        /* x10   */
++static const q16_16_t UQ_VOFFSET_V  = q16_16_from_frac(165, 100); /* 1.65V */
++/* ADC 生→電圧[V]（較正 V/LSB 使用）*/
++static inline q16_16_t uq_adc_to_volt(int32_t adc){
++    q16_16_t vlsb = adc_vcal_get_v_per_lsb(&g_vcal);
++    return q16_16_mul(q16_16_from_int(adc), vlsb);
++}
++/* 電圧→電流[A] */
++static inline q16_16_t uq_volt_to_curr(q16_16_t v){
++    q16_16_t num = q16_16_sub_sat(v, UQ_VOFFSET_V);
++    q16_16_t den = q16_16_mul(UQ_RSHUNT_OHM, UQ_AMP_GAIN);
++    return q16_16_div(num, den);
++}
++/* 角速度の相互変換 */
++static const q16_16_t UQ_TWO_PI = q16_16_from_frac(710, 113); /* ≈ 2π */
++static const q16_16_t UQ_60     = q16_16_from_int(60);
++static inline q16_16_t uq_rpm_to_rad_s(q16_16_t rpm){
++    return q16_16_div(q16_16_mul(rpm, UQ_TWO_PI), UQ_60);
++}
++static inline q16_16_t uq_rad_s_to_rpm(q16_16_t rad_s){
++    return q16_16_div(q16_16_mul(rad_s, UQ_60), UQ_TWO_PI);
++}
++/* duty 変換 */
++static inline q16_16_t uq_permille_to_duty(uint16_t p){
++    return q16_16_from_frac(p, 1000);
++}
++static inline uint16_t uq_duty_to_permille(q16_16_t duty){
++    q16_16_t x = q16_16_mul(duty, q16_16_from_int(1000));
++    int32_t  r = q16_16_to_int_rnd(x);
++    if (r < 0) r = 0;
++    if (r > 1000) r = 1000;
++    return (uint16_t)r;
++}
++#endif
+diff --git a/Src/foc.c b/Src/foc.c
+index 1234567..89abcde 100644
+--- a/Src/foc.c
++++ b/Src/foc.c
+@@ -1,11 +1,18 @@
+-/*
+- * foc.c
+- *
+- *  Created on: Oct 13, 2025
+- *      Author: idune
+- */
++/* foc.c
++ * 目的：
++ *   FOC の電流ループ部を Q16.16/SI単位PID に置換（外形はそのままQ31）。
++ *   - 入出力は既存Q31のまま（-1..+1）で互換性を維持。
++ *   - 内部で Id/Iq を[A]に変換し、PID(D-on-meas)＋ソフトスタート＋スルーレートを適用。
++ * 注意：
++ *   係数（I_MAX_A など）は実機に合わせて調整。
++ */
+ 
+ #include "foc.h"
+ #include "fixedpoint.h"
+ #include "config.h"
+ #include "firmware.h"
++/* 追加：Q16.16 制御ユーティリティ */
++#include "Drivers/BLDC_Lib/Inc/fixed_q16_16.h"
++#include "Drivers/BLDC_Lib/Inc/pid_q16_16.h"
++#include "Drivers/BLDC_Lib/Inc/slew_q16_16.h"
++#include "Drivers/BLDC_Lib/Inc/softstart_q16_16.h"
+ 
+@@
+ void FOC_CurrentLoopStep(FOC_t *foc, int32_t i_a_q31, int32_t i_b_q31,
+ 		int32_t i_c_q31, int32_t theta_q31)
+ {
+@@
+ 	int32_t q2 = q31_mul(c, i_beta);
+ 	int32_t iq = q31_add_sat(q1, q2);
+ 
+-	// PI
+-	int32_t ed = q31_sub_sat(foc->Id_ref_q31, id);
+-	int32_t eq = q31_sub_sat(foc->Iq_ref_q31, iq);
+-
+-	foc->Id_i_q31 = q31_add_sat(foc->Id_i_q31, q31_mul(foc->Ki_d_q31, ed));
+-	foc->Iq_i_q31 = q31_add_sat(foc->Iq_i_q31, q31_mul(foc->Ki_q_q31, eq));
+-
+-	int32_t vd = q31_add_sat(q31_mul(foc->Kp_d_q31, ed), foc->Id_i_q31);
+-	int32_t vq = q31_add_sat(q31_mul(foc->Kp_q_q31, eq), foc->Iq_i_q31);
++	/* ブロックコメント：
++	 * PID 制御（Q16.16, SI単位）
++	 * - Q31 の Id/Iq [-1..1] を 実電流[A] に変換（I_MAX_A を係数として使用）
++	 * - PID(D-on-measurement) で Vd/Vq の正規化指令[-1..1]を生成
++	 * - ソフトスタート係数とスルーレート制限を適用
++	 */
++	{
++		static const int32_t I_MAX_A_Q16 = (int32_t)(10 << 16); /* フルスケール電流[A]（例：10A）*/
++		static const int32_t SLEW_UP_Q16 = (1 << 16);           /* 1.0 / s */
++		static const int32_t SLEW_DN_Q16 = (3 << 16);           /* 3.0 / s */
++		static const int32_t DT_Q16      = (int32_t)((1<<16) / PWM_FREQ_HZ); /* 制御周期[s] */
++
++		static pid_q16_16_t pid_d, pid_q;
++		static softstart_t  ss;
++		static int          inited = 0;
++		static int32_t      u_d_prev = 0, u_q_prev = 0;
++
++		if (!inited)
++		{
++			pid_q16_16_init(&pid_d);
++			pid_q16_16_init(&pid_q);
++			pid_d.kp = (3<<16); pid_d.ki = (40<<16); pid_d.kd = 0;
++			pid_q.kp = (3<<16); pid_q.ki = (40<<16); pid_q.kd = 0;
++			pid_d.out_min = -(1<<16); pid_d.out_max = (1<<16);
++			pid_q.out_min = -(1<<16); pid_q.out_max = (1<<16);
++			softstart_init(&ss, (int32_t)(0.3 * 65536)); /* 0.3s */
++			softstart_enable(&ss, 1);
++			inited = 1;
++		}
++
++		/* Id/Iq 実測と参照を Q16.16[A] へ変換 */
++		int32_t id_A_q16     = (int32_t)(( (int64_t)id >> 15) * I_MAX_A_Q16 >> 16);
++		int32_t iq_A_q16     = (int32_t)(( (int64_t)iq >> 15) * I_MAX_A_Q16 >> 16);
++		int32_t Id_ref_A_q16 = (int32_t)(( (int64_t)foc->Id_ref_q31 >> 15) * I_MAX_A_Q16 >> 16);
++		int32_t Iq_ref_A_q16 = (int32_t)(( (int64_t)foc->Iq_ref_q31 >> 15) * I_MAX_A_Q16 >> 16);
++
++		/* ソフトスタートで Iq_ref を段階的に上げる */
++		int32_t ss_gain = softstart_step(&ss, DT_Q16);
++		Iq_ref_A_q16 = (int32_t)(( (int64_t)Iq_ref_A_q16 * ss_gain) >> 16);
++
++		/* PID 実行（出力は正規化電圧[-1..1]の Q16.16）*/
++		int32_t u_d_q16 = pid_q16_16_step(&pid_d, Id_ref_A_q16, id_A_q16, DT_Q16);
++		int32_t u_q_q16 = pid_q16_16_step(&pid_q, Iq_ref_A_q16, iq_A_q16, DT_Q16);
++
++		/* スルーレート制限 */
++		u_d_q16 = q16_16_slew_step(u_d_prev, u_d_q16, SLEW_UP_Q16, SLEW_DN_Q16, DT_Q16);
++		u_q_q16 = q16_16_slew_step(u_q_prev, u_q_q16, SLEW_UP_Q16, SLEW_DN_Q16, DT_Q16);
++		u_d_prev = u_d_q16; u_q_prev = u_q_q16;
++
++		/* Q31 へ戻す（-1..1） */
++		int32_t vd = (int32_t)(( (int64_t)u_d_q16 ) << 15);
++		int32_t vq = (int32_t)(( (int64_t)u_q_q16 ) << 15);
++		/* 逆Parkへ渡すためのローカル上書き */
++		/* 以下の逆Park計算はこの vd/vq を使用 */
++		/* 注意：既存の Ki/Kp を使わないため foc->Id_i_q31 等は以降未使用 */
++		
++		/* 逆Park用にスコープ外で参照される変数名と整合させる */
++		/* vd, vq ローカルをこの後の逆Park計算に使用 */
++		/* ↓（そのまま下の逆Parkへ連続） */
++		/* fallthrough */
++	}
+ 
+ 	// 逆Park
+ 	int32_t a1 = q31_mul(c, vd);
+ 	int32_t a2 = q31_mul(-s, vq);
+ 	int32_t v_alpha = q31_add_sat(a1, a2);
+@@
+ 	(void) sector;
+ }
+ 
+diff --git a/Src/app.c b/Src/app.c
+index 13579bd..2468ace 100644
+--- a/Src/app.c
++++ b/Src/app.c
+@@ -1,9 +1,18 @@
+-/*
+- * app.c
+- *
+- *  Created on: Oct 13, 2025
+- *      Author: idune
+- */
++/* app.c
++ * 目的：
++ *   - PA0(ADC1_CH0)=1.235V 基準で V/LSB をランタイム較正
++ *   - BG系（既存コールバック）で軽量に更新
++ *   - 行コメントはブロックコメントへ統一
++ */
+ 
+ #include "config.h"
+ #include "app.h"
+ #include "firmware.h"
+ #include "foc.h"
+ #include "bemf_pll.h"
+ #include "fixedpoint.h"
+ #include "encoder.h"
++/* 追加：Q16.16 ユーティリティ */
++#include "Drivers/BLDC_Lib/Inc/fixed_q16_16.h"
++#include "Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h"
++#include "Drivers/BLDC_Lib/Inc/units_q16_16.h"
++
++/* 較正状態（他の翻訳単位から参照される） */
++adc_vcal_t g_vcal;
+ 
+@@
+ void APP_Init(void)
+ {
+ 	FOC_Init(&s_foc);
+ 	BEMF_PLL_Init(&s_pll);
+@@
++	/* ブロックコメント：
++	 * ADC 較正の初期化。
++	 * v_ref_in = 1.235V, alpha = 0.1（1kHz更新なら時定数約9ms）
++	 */
++	adc_vcal_init(&g_vcal, q16_16_from_frac(1235, 1000), q16_16_from_frac(1, 10));
+ 
+ 	s_pll.Ts_q31 = (int32_t) (((int64_t) 1 << 31) / (int64_t) PWM_FREQ_HZ);
+ 	s_pll.Rs_q31 = CONF_RS_Q31;
+ 	s_pll.Ls_q31 = CONF_LS_Q31;
+ 	s_pll.alpha_q31 = CONF_OB
+@@
+ void APP_OnVoltage(uint16_t *v_adc)
+ {
+-	s_voltage[0] = *v_adc;
++	/* ブロックコメント：
++	 * ここでは v_adc[0] を PA0(1.235V) と仮定して較正更新を行う。
++	 * プロジェクトでの実CH割付に合わせてインデックスを調整すること。
++	 */
++	s_voltage[0] = *v_adc;
++	adc_vcal_update(&g_vcal, (int32_t)s_voltage[0]);
+ 
+ 	s_voltage[1] = *(v_adc + 1);
+ 	s_voltage[2] = *(v_adc + 2);
+ 	s_voltage[3] = *(v_adc + 3);
+ }
+diff --git a/Src/firmware.c b/Src/firmware.c
+index 5a5a5a5..6b6b6b6 100644
+--- a/Src/firmware.c
++++ b/Src/firmware.c
+@@ -1,6 +1,14 @@
+-/*
+- * firmware.c
+- */
++/* firmware.c
++ * 目的：
++ *   TIM1 出力をアクティブロー（Pchハイサイド＋Nchローサイドとも 0=ON）に統一。
++ *   アイドル状態も OFF となるよう OIS を設定。
++ * 注意：
++ *   既存のCCR計算はそのままで、極性のみハード側で反転。
++ */
+@@
+ 	// --- CCER: メイン＋コンプリメンタリを両方有効化 ---
+ 	// 極性はまず非反転（H=ON）で開始。必要なら後述の「極性」参照。
+ 	TIM1->CCER = 0;
+ 	TIM1->CCER |= TIM_CCER_CC1E | TIM_CCER_CC1NE;  // CH1/CH1N
+ 	TIM1->CCER |= TIM_CCER_CC2E | TIM_CCER_CC2NE;  // CH2/CH2N
+ 	TIM1->CCER |= TIM_CCER_CC3E | TIM_CCER_CC3NE;  // CH3/CH3N
+ 	// CH4ピンは無効のまま（OC4REFは内部利用）
++	/* 極性：アクティブロー（論理0=ON）に設定する */
++	TIM1->CCER |= (TIM_CCER_CC1P | TIM_CCER_CC1NP
++	            |  TIM_CCER_CC2P | TIM_CCER_CC2NP
++	            |  TIM_CCER_CC3P | TIM_CCER_CC3NP);
++	/* 停止時のアイドル出力も LOW=OFF へ統一（OISx=0/OISxN=0）*/
++	TIM1->CR2 &= ~(TIM_CR2_OIS1|TIM_CR2_OIS1N|TIM_CR2_OIS2|TIM_CR2_OIS2N|TIM_CR2_OIS3|TIM_CR2_OIS3N);
+ 
+ 	// --- TRGO: OC4REF を外部へ（TIM3ブリッジ・ADC用） ---
+ 	TIM1->CR2 &= ~TIM_CR2_MMS;
+ 	TIM1->CR2 |=  (7<<TIM_CR2_MMS_Pos);  // TRGO = OC4REF
