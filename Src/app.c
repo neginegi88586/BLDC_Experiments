@@ -1,8 +1,8 @@
-/*
- * app.c
- *
- *  Created on: Oct 13, 2025
- *      Author: idune
+/* app.c
+ * 目的：
+ *   - PA0(ADC1_CH0)=1.235V 基準で V/LSB をランタイム較正
+ *   - BG系（既存コールバック）で軽量に更新
+ *   - 行コメントはブロックコメントへ統一
  */
 
 #include "config.h"
@@ -12,6 +12,13 @@
 #include "bemf_pll.h"
 #include "fixedpoint.h"
 #include "encoder.h"
+/* 追加：Q16.16 ユーティリティ */
+#include "Drivers/BLDC_Lib/Inc/fixed_q16_16.h"
+#include "Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h"
+#include "Drivers/BLDC_Lib/Inc/units_q16_16.h"
+
+/* 較正状態（他の翻訳単位から参照される） */
+adc_vcal_t g_vcal;
 
 
 // ====== CORDIC: 係数も完全整数化 ======
@@ -217,10 +224,16 @@ static inline int32_t speed_pi_to_iq_q31(int32_t omega_ref_step_q31, int32_t ome
 
 void APP_Init(void)
 {
-	FOC_Init(&s_foc);
-	BEMF_PLL_Init(&s_pll);
+        FOC_Init(&s_foc);
+        BEMF_PLL_Init(&s_pll);
 
-	s_pll.Ts_q31 = (int32_t) (((int64_t) 1 << 31) / (int64_t) PWM_FREQ_HZ);
+       /* ブロックコメント：
+        * ADC 較正の初期化。
+        * v_ref_in = 1.235V, alpha = 0.1（1kHz更新なら時定数約9ms）
+        */
+       adc_vcal_init(&g_vcal, q16_16_from_frac(1235, 1000), q16_16_from_frac(1, 10));
+
+        s_pll.Ts_q31 = (int32_t) (((int64_t) 1 << 31) / (int64_t) PWM_FREQ_HZ);
 	s_pll.Rs_q31 = CONF_RS_Q31;
 	s_pll.Ls_q31 = CONF_LS_Q31;
 	s_pll.alpha_q31 = CONF_OBS_ALPHA_Q31;
@@ -257,8 +270,16 @@ void APP_OnVphase(uint16_t *v_adc)
 
 void APP_OnVoltage(uint16_t *v_adc)
 {
-	s_voltage[0] = *v_adc;
-	s_voltage[1] = *(v_adc + 1);
+       /* ブロックコメント：
+        * ここでは v_adc[0] を PA0(1.235V) と仮定して較正更新を行う。
+        * プロジェクトでの実CH割付に合わせてインデックスを調整すること。
+        */
+       s_voltage[0] = *v_adc;
+       adc_vcal_update(&g_vcal, (int32_t)s_voltage[0]);
+
+       s_voltage[1] = *(v_adc + 1);
+       s_voltage[2] = *(v_adc + 2);
+       s_voltage[3] = *(v_adc + 3);
 }
 
 void APP_Step(void)

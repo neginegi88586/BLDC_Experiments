@@ -1,8 +1,9 @@
-/*
- * firmware.c
- *
- *  Created on: Oct 13, 2025
- *      Author: idune
+/* firmware.c
+ * 目的：
+ *   TIM1 出力をアクティブロー（Pchハイサイド＋Nchローサイドとも 0=ON）に統一。
+ *   アイドル状態も OFF となるよう OIS を設定。
+ * 注意：
+ *   既存のCCR計算はそのままで、極性のみハード側で反転。
  */
 
 #include "config.h"
@@ -121,19 +122,20 @@ void FW_TIM1_InitPWM(void)
 	// --- CCER: メイン＋コンプリメンタリを両方有効化 ---
 	// 極性はまず非反転（H=ON）で開始。必要なら後述の「極性」参照。
 	TIM1->CCER = 0;
-	TIM1->CCER |= TIM_CCER_CC1E | TIM_CCER_CC1NE;  // CH1/CH1N
-	TIM1->CCER |= TIM_CCER_CC2E | TIM_CCER_CC2NE;  // CH2/CH2N
-	TIM1->CCER |= TIM_CCER_CC3E | TIM_CCER_CC3NE;  // CH3/CH3N
-	// CH4ピンは無効のまま（OC4REFは内部利用）
+        TIM1->CCER |= TIM_CCER_CC1E | TIM_CCER_CC1NE;  // CH1/CH1N
+        TIM1->CCER |= TIM_CCER_CC2E | TIM_CCER_CC2NE;  // CH2/CH2N
+        TIM1->CCER |= TIM_CCER_CC3E | TIM_CCER_CC3NE;  // CH3/CH3N
+        // CH4ピンは無効のまま（OC4REFは内部利用）
+       /* 極性：アクティブロー（論理0=ON）に設定する */
+       TIM1->CCER |= (TIM_CCER_CC1P | TIM_CCER_CC1NP
+                   |  TIM_CCER_CC2P | TIM_CCER_CC2NP
+                   |  TIM_CCER_CC3P | TIM_CCER_CC3NP);
+       /* 停止時のアイドル出力も LOW=OFF へ統一（OISx=0/OISxN=0）*/
+       TIM1->CR2 &= ~(TIM_CR2_OIS1|TIM_CR2_OIS1N|TIM_CR2_OIS2|TIM_CR2_OIS2N|TIM_CR2_OIS3|TIM_CR2_OIS3N);
 
-	// --- TRGO: OC4REF を外部へ（TIM3ブリッジ・ADC用） ---
-	TIM1->CR2 &= ~TIM_CR2_MMS;
-	TIM1->CR2 |=  (7<<TIM_CR2_MMS_Pos);  // TRGO = OC4REF
-
-	// --- 停止/非常時の安全レベル（OSSR/OSSI + OISx/OISxN） ---
-	// H=ONなドライバ前提 → 停止時は LOW=OFF にしたいので OISx=0 / OISxN=0
-	TIM1->CR2 &= ~(TIM_CR2_OIS1|TIM_CR2_OIS1N|TIM_CR2_OIS2|TIM_CR2_OIS2N|
-	               TIM_CR2_OIS3|TIM_CR2_OIS3N|TIM_CR2_OIS4);
+        // --- TRGO: OC4REF を外部へ（TIM3ブリッジ・ADC用） ---
+        TIM1->CR2 &= ~TIM_CR2_MMS;
+        TIM1->CR2 |=  (7<<TIM_CR2_MMS_Pos);  // TRGO = OC4REF
 
 	TIM1->BDTR = 0;
 	TIM1->BDTR |= (DTG_TICKS << TIM_BDTR_DTG_Pos);
