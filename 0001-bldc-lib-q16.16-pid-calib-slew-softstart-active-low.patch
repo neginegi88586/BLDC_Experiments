@@ -1,8 +1,4 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: you <you@example.com>
-Date: Tue, 21 Oct 2025 16:00:00 +0900
-Subject: [PATCH] Q16.16 PID + PA0(1.235V) calibration + slew/softstart +
- active-low PWM
+From: neginegi88586 <idunegi@gmail.com>
 
 ---
  Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h  | 130 ++++++++++++++++++++++++
@@ -22,11 +18,10 @@ Subject: [PATCH] Q16.16 PID + PA0(1.235V) calibration + slew/softstart +
  create mode 100644 Drivers/BLDC_Lib/Inc/softstart_q16_16.h
  create mode 100644 Drivers/BLDC_Lib/Inc/units_q16_16.h
 
-diff --git a/Drivers/BLDC_Lib/Inc/fixed_q16_16.h b/Drivers/BLDC_Lib/Inc/fixed_q16_16.h
+diff --git /Drivers/BLDC_Lib/Inc/fixed_q16_16.h
 new file mode 100644
-index 0000000..1111111
 --- /dev/null
-+++ b/Drivers/BLDC_Lib/Inc/fixed_q16_16.h
++++ /Drivers/BLDC_Lib/Inc/fixed_q16_16.h
 @@ -0,0 +1,188 @@
 +/* fixed_q16_16.h
 + * 目的：
@@ -85,11 +80,10 @@ index 0000000..1111111
 +    return (q16_16_t)d;
 +}
 +#endif
-diff --git a/Drivers/BLDC_Lib/Inc/pid_q16_16.h b/Drivers/BLDC_Lib/Inc/pid_q16_16.h
+diff --git /Drivers/BLDC_Lib/Inc/pid_q16_16.h
 new file mode 100644
-index 0000000..2222222
 --- /dev/null
-+++ b/Drivers/BLDC_Lib/Inc/pid_q16_16.h
++++ /Drivers/BLDC_Lib/Inc/pid_q16_16.h
 @@ -0,0 +1,151 @@
 +/* pid_q16_16.h
 + * 目的：
@@ -148,11 +142,10 @@ index 0000000..2222222
 +    return u;
 +}
 +#endif
-diff --git a/Drivers/BLDC_Lib/Inc/slew_q16_16.h b/Drivers/BLDC_Lib/Inc/slew_q16_16.h
+diff --git /Drivers/BLDC_Lib/Inc/slew_q16_16.h
 new file mode 100644
-index 0000000..3333333
 --- /dev/null
-+++ b/Drivers/BLDC_Lib/Inc/slew_q16_16.h
++++ /Drivers/BLDC_Lib/Inc/slew_q16_16.h
 @@ -0,0 +1,73 @@
 +/* slew_q16_16.h
 + * 目的：
@@ -180,11 +173,10 @@ index 0000000..3333333
 +    }
 +}
 +#endif
-diff --git a/Drivers/BLDC_Lib/Inc/softstart_q16_16.h b/Drivers/BLDC_Lib/Inc/softstart_q16_16.h
+diff --git /Drivers/BLDC_Lib/Inc/softstart_q16_16.h
 new file mode 100644
-index 0000000..4444444
 --- /dev/null
-+++ b/Drivers/BLDC_Lib/Inc/softstart_q16_16.h
++++ /Drivers/BLDC_Lib/Inc/softstart_q16_16.h
 @@ -0,0 +1,82 @@
 +/* softstart_q16_16.h
 + * 目的：
@@ -220,11 +212,10 @@ index 0000000..4444444
 +    return s->scale;
 +}
 +#endif
-diff --git a/Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h b/Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h
+diff --git /Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h
 new file mode 100644
-index 0000000..5555555
 --- /dev/null
-+++ b/Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h
++++ /Drivers/BLDC_Lib/Inc/adc_vcal_q16_16.h
 @@ -0,0 +1,130 @@
 +/* adc_vcal_q16_16.h
 + * 目的：
@@ -267,11 +258,10 @@ index 0000000..5555555
 +    return s->v_per_lsb;
 +}
 +#endif
-diff --git a/Drivers/BLDC_Lib/Inc/units_q16_16.h b/Drivers/BLDC_Lib/Inc/units_q16_16.h
+diff --git /Drivers/BLDC_Lib/Inc/units_q16_16.h
 new file mode 100644
-index 0000000..6666666
 --- /dev/null
-+++ b/Drivers/BLDC_Lib/Inc/units_q16_16.h
++++ /Drivers/BLDC_Lib/Inc/units_q16_16.h
 @@ -0,0 +1,124 @@
 +/* units_q16_16.h
 + * 目的：
@@ -319,10 +309,9 @@ index 0000000..6666666
 +    return (uint16_t)r;
 +}
 +#endif
-diff --git a/Src/foc.c b/Src/foc.c
-index 1234567..89abcde 100644
---- a/Src/foc.c
-+++ b/Src/foc.c
+diff --git /Src/foc.c
+--- /Src/foc.c
++++ /Src/foc.c
 @@ -1,11 +1,18 @@
 -/*
 - * foc.c
@@ -436,10 +425,10 @@ index 1234567..89abcde 100644
  	(void) sector;
  }
  
-diff --git a/Src/app.c b/Src/app.c
+diff --git /Src/app.c
 index 13579bd..2468ace 100644
---- a/Src/app.c
-+++ b/Src/app.c
+--- /Src/app.c
++++ /Src/app.c
 @@ -1,9 +1,18 @@
 -/*
 - * app.c
@@ -500,10 +489,10 @@ index 13579bd..2468ace 100644
  	s_voltage[2] = *(v_adc + 2);
  	s_voltage[3] = *(v_adc + 3);
  }
-diff --git a/Src/firmware.c b/Src/firmware.c
+diff --git /Src/firmware.c
 index 5a5a5a5..6b6b6b6 100644
---- a/Src/firmware.c
-+++ b/Src/firmware.c
+--- /Src/firmware.c
++++ /Src/firmware.c
 @@ -1,6 +1,14 @@
 -/*
 - * firmware.c

@@ -1,6 +1,6 @@
-C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:31:23:q31_mul	3
-C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:42:23:q31_div	5
-C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:54:23:q31_add_sat	3
-C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:64:23:q31_sub_sat	3
+C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:30:23:q31_mul	3
+C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:41:23:q31_div	5
+C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:53:23:q31_add_sat	3
+C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/fixedpoint.h:63:23:q31_sub_sat	3
 ../Src/bemf_pll.c:12:6:BEMF_PLL_Init	1
 ../Src/bemf_pll.c:25:6:BEMF_PLL_Step	4

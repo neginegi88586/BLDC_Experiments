@@ -1,14 +1,21 @@
-/*
- * foc.c
- *
- *  Created on: Oct 13, 2025
- *      Author: idune
+/* foc.c
+ * 目的：
+ *   FOC の電流ループ部を Q16.16/SI単位PID に置換（外形はそのままQ31）。
+ *   - 入出力は既存Q31のまま（-1..+1）で互換性を維持。
+ *   - 内部で Id/Iq を[A]に変換し、PID(D-on-meas)＋ソフトスタート＋スルーレートを適用。
+ * 注意：
+ *   係数（I_MAX_A など）は実機に合わせて調整。
  */
 
 #include "foc.h"
 #include "fixedpoint.h"
 #include "config.h"
 #include "firmware.h"
+/* 追加：Q16.16 制御ユーティリティ */
+#include "fixed_q16_16.h"
+#include "pid_q16_16.h"
+#include "slew_q16_16.h"
+#include "softstart_q16_16.h"
 
 
 static inline void park_q31(int32_t ialpha, int32_t ibeta, int32_t sin_t,
@@ -160,6 +167,8 @@ void FOC_Init(FOC_t *foc)
 void FOC_CurrentLoopStep(FOC_t *foc, int32_t i_a_q31, int32_t i_b_q31,
 		int32_t i_c_q31, int32_t theta_q31)
 {
+	int32_t vd;
+	int32_t vq;
 	int32_t i_alpha = i_a_q31;
 	int32_t two_ib = q31_add_sat(i_b_q31, i_b_q31);
 	int32_t sum = q31_add_sat(i_a_q31, two_ib);
@@ -177,15 +186,67 @@ void FOC_CurrentLoopStep(FOC_t *foc, int32_t i_a_q31, int32_t i_b_q31,
 	int32_t q2 = q31_mul(c, i_beta);
 	int32_t iq = q31_add_sat(q1, q2);
 
-	// PI
-	int32_t ed = q31_sub_sat(foc->Id_ref_q31, id);
-	int32_t eq = q31_sub_sat(foc->Iq_ref_q31, iq);
+       /* ブロックコメント：
+        * PID 制御（Q16.16, SI単位）
+        * - Q31 の Id/Iq [-1..1] を 実電流[A] に変換（I_MAX_A を係数として使用）
+        * - PID(D-on-meas) で Vd/Vq の正規化指令[-1..1]を生成
+        * - ソフトスタート係数とスルーレート制限を適用
+        */
+       {
+               static const int32_t I_MAX_A_Q16 = (int32_t)(10 << 16); /* フルスケール電流[A]（例：10A）*/
+               static const int32_t SLEW_UP_Q16 = (1 << 16);           /* 1.0 / s */
+               static const int32_t SLEW_DN_Q16 = (3 << 16);           /* 3.0 / s */
+               static const int32_t DT_Q16      = (int32_t)((1<<16) / PWM_FREQ_HZ); /* 制御周期[s] */
 
-	foc->Id_i_q31 = q31_add_sat(foc->Id_i_q31, q31_mul(foc->Ki_d_q31, ed));
-	foc->Iq_i_q31 = q31_add_sat(foc->Iq_i_q31, q31_mul(foc->Ki_q_q31, eq));
+               static pid_q16_16_t pid_d, pid_q;
+               static softstart_t  ss;
+               static int          inited = 0;
+               static int32_t      u_d_prev = 0, u_q_prev = 0;
 
-	int32_t vd = q31_add_sat(q31_mul(foc->Kp_d_q31, ed), foc->Id_i_q31);
-	int32_t vq = q31_add_sat(q31_mul(foc->Kp_q_q31, eq), foc->Iq_i_q31);
+               if (!inited)
+               {
+                       pid_q16_16_init(&pid_d);
+                       pid_q16_16_init(&pid_q);
+                       pid_d.kp = (3<<16); pid_d.ki = (40<<16); pid_d.kd = 0;
+                       pid_q.kp = (3<<16); pid_q.ki = (40<<16); pid_q.kd = 0;
+                       pid_d.out_min = -(1<<16); pid_d.out_max = (1<<16);
+                       pid_q.out_min = -(1<<16); pid_q.out_max = (1<<16);
+                       softstart_init(&ss, (int32_t)(0.3 * 65536)); /* 0.3s */
+                       softstart_enable(&ss, 1);
+                       inited = 1;
+               }
+
+               /* Id/Iq 実測と参照を Q16.16[A] へ変換 */
+               int32_t id_A_q16     = (int32_t)(( (int64_t)id >> 15) * I_MAX_A_Q16 >> 16);
+               int32_t iq_A_q16     = (int32_t)(( (int64_t)iq >> 15) * I_MAX_A_Q16 >> 16);
+               int32_t Id_ref_A_q16 = (int32_t)(( (int64_t)foc->Id_ref_q31 >> 15) * I_MAX_A_Q16 >> 16);
+               int32_t Iq_ref_A_q16 = (int32_t)(( (int64_t)foc->Iq_ref_q31 >> 15) * I_MAX_A_Q16 >> 16);
+
+               /* ソフトスタートで Iq_ref を段階的に上げる */
+               int32_t ss_gain = softstart_step(&ss, DT_Q16);
+               Iq_ref_A_q16 = (int32_t)(( (int64_t)Iq_ref_A_q16 * ss_gain) >> 16);
+
+               /* PID 実行（出力は正規化電圧[-1..1]の Q16.16）*/
+               int32_t u_d_q16 = pid_q16_16_step(&pid_d, Id_ref_A_q16, id_A_q16, DT_Q16);
+               int32_t u_q_q16 = pid_q16_16_step(&pid_q, Iq_ref_A_q16, iq_A_q16, DT_Q16);
+
+               /* スルーレート制限 */
+               u_d_q16 = q16_16_slew_step(u_d_prev, u_d_q16, SLEW_UP_Q16, SLEW_DN_Q16, DT_Q16);
+               u_q_q16 = q16_16_slew_step(u_q_prev, u_q_q16, SLEW_UP_Q16, SLEW_DN_Q16, DT_Q16);
+               u_d_prev = u_d_q16; u_q_prev = u_q_q16;
+
+               /* Q31 へ戻す（-1..1） */
+               vd = (int32_t)(( (int64_t)u_d_q16 ) << 15);
+               vq = (int32_t)(( (int64_t)u_q_q16 ) << 15);
+               /* 逆Parkへ渡すためのローカル上書き */
+               /* 以下の逆Park計算はこの vd/vq を使用 */
+               /* 注意：既存の Ki/Kp を使わないため foc->Id_i_q31 等は以降未使用 */
+
+               /* 逆Park用にスコープ外で参照される変数名と整合させる */
+               /* vd, vq ローカルをこの後の逆Park計算に使用 */
+               /* ↓（そのまま下の逆Parkへ連続） */
+               /* fallthrough */
+       }
 
 	// 逆Park
 	int32_t a1 = q31_mul(c, vd);

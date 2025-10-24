@@ -27,7 +27,6 @@
 #define Q31_MARGIN_2PCT Q31_FRAC(1, 50) // 0.02
 #define Q31_INV_TWOPI Q31_FRAC(159154943, 1000000000) // 1/(2π) ≈ 0.159154943
 
-
 static inline int32_t q31_mul(int32_t a, int32_t b)
 {
 	int64_t t = (int64_t) a * (int64_t) b;
