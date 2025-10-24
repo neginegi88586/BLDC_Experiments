@@ -1,3 +1,5 @@
+From: neginegi88586 <idunegi@gmail.com>
+
 ---
  Inc/config.h                        | 38 +++++++++++++++++++++++++++++
  Drivers/BLDC_Lib/Inc/units_q16_16.h | 18 +++++++------
@@ -48,10 +50,9 @@ diff --git /Inc/config.h
 +
 +/* 既存の他設定項目がここに続く場合は残してください */
 +
-diff --git /Drivers/BLDC_Lib/Inc/units_q16.h
-index 6666666..7777777 100644
---- Drivers/BLDC_Lib/Inc/units_q16.h
-+++ Drivers/BLDC_Lib/Inc/units_q16.h
+diff --git /Inc/BLDC_Lib/units_q16.h
+--- /Inc/BLDC_Lib/units_q16.h
++++ /Inc/BLDC_Lib/units_q16.h
 @@ -6,24 +6,26 @@
  #ifndef UNITS_Q16_H
  #define UNITS_Q16_H
@@ -93,7 +94,6 @@ index 6666666..7777777 100644
  }
  #endif
 diff --git /Src/fixedpoint.h
-new file mode 100644
 --- /dev/null
 +++ /Src/fixedpoint.h
 @@ -0,0 +1,69 @@
