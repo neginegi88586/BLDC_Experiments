@@ -12,10 +12,10 @@
 #include "config.h"
 #include "firmware.h"
 /* 追加：Q16.16 制御ユーティリティ */
-#include "fixed_q16_16.h"
-#include "pid_q16_16.h"
-#include "slew_q16_16.h"
-#include "softstart_q16_16.h"
+#include "fixed_q16.h"
+#include "pid_q16.h"
+#include "slew_q16.h"
+#include "softstart_q16.h"
 
 
 static inline void park_q31(int32_t ialpha, int32_t ibeta, int32_t sin_t,

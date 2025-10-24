@@ -5,10 +5,9 @@
  3 files changed, 115 insertions(+), 10 deletions(-)
  create mode 100644 Src/fixedpoint.h
 
-diff --git a/Inc/config.h b/Inc/config.h
-index e5e5e5e..f6f6f6f 100644
---- a/Inc/config.h
-+++ b/Inc/config.h
+diff --git /Inc/config.h
+--- /Inc/config.h
++++ /Inc/config.h
 @@ -1,3 +1,41 @@
  /* config.h
   * プロジェクト共通設定
@@ -49,13 +48,13 @@ index e5e5e5e..f6f6f6f 100644
 +
 +/* 既存の他設定項目がここに続く場合は残してください */
 +
-diff --git a/Drivers/BLDC_Lib/Inc/units_q16_16.h b/Drivers/BLDC_Lib/Inc/units_q16_16.h
+diff --git /Drivers/BLDC_Lib/Inc/units_q16.h
 index 6666666..7777777 100644
---- a/Drivers/BLDC_Lib/Inc/units_q16_16.h
-+++ b/Drivers/BLDC_Lib/Inc/units_q16_16.h
+--- Drivers/BLDC_Lib/Inc/units_q16.h
++++ Drivers/BLDC_Lib/Inc/units_q16.h
 @@ -6,24 +6,26 @@
- #ifndef UNITS_Q16_16_H
- #define UNITS_Q16_16_H
+ #ifndef UNITS_Q16_H
+ #define UNITS_Q16_H
  #include <stdint.h>
 +#include "config.h"               /* ← 物理定数は config.h に集約 */
  #include "fixed_q16_16.h"
@@ -93,11 +92,10 @@ index 6666666..7777777 100644
      return (uint16_t)r;
  }
  #endif
-diff --git a/Src/fixedpoint.h b/Src/fixedpoint.h
+diff --git /Src/fixedpoint.h
 new file mode 100644
-index 0000000..8888888
 --- /dev/null
-+++ b/Src/fixedpoint.h
++++ /Src/fixedpoint.h
 @@ -0,0 +1,69 @@
 +/* fixedpoint.h  (Q31 API → Q16.16 バックエンドへ差し替え)
 + * 目的：

@@ -39,15 +39,15 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  17 .debug_macro  0001864a  00000000  00000000  0000da6c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_line   000047a0  00000000  00000000  000260b6  2**0
+ 18 .debug_line   0000477b  00000000  00000000  000260b6  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .debug_str    00085bab  00000000  00000000  0002a856  2**0
+ 19 .debug_str    00085b99  00000000  00000000  0002a831  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 20 .comment      00000043  00000000  00000000  000b0401  2**0
+ 20 .comment      00000043  00000000  00000000  000b03ca  2**0
                   CONTENTS, READONLY
- 21 .debug_frame  00002110  00000000  00000000  000b0444  2**2
+ 21 .debug_frame  00002110  00000000  00000000  000b0410  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 22 .debug_line_str 00000067  00000000  00000000  000b2554  2**0
+ 22 .debug_line_str 00000067  00000000  00000000  000b2520  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -6494,9 +6494,9 @@ static inline q16_16_t pid_q16_16_step(pid_q16_16_t *p, q16_16_t setpoint,
  8003534:	bd90      	pop	{r4, r7, pc}
 
 08003536 <q16_16_slew_step>:
-#define SLEW_Q16_16_H
+#define SLEW_Q16_H
 #include <stdint.h>
-#include "fixed_q16_16.h"
+#include "fixed_q16.h"
 static inline q16_16_t q16_16_slew_step(q16_16_t prev, q16_16_t target,
 		q16_16_t slew_up_per_s, q16_16_t slew_dn_per_s, q16_16_t dt_s)
 {

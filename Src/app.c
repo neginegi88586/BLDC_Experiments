@@ -13,9 +13,9 @@
 #include "fixedpoint.h"
 #include "encoder.h"
 /* 追加：Q16.16 ユーティリティ */
-#include "fixed_q16_16.h"
-#include "adc_vcal_q16_16.h"
-#include "units_q16_16.h"
+#include "fixed_q16.h"
+#include "adc_vcal_q16.h"
+#include "units_q16.h"
 
 /* 較正状態（他の翻訳単位から参照される） */
 adc_vcal_t g_vcal;
