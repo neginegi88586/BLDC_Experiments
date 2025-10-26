@@ -89,7 +89,7 @@ diff --git /Inc/BLDC_Lib/units_q16.h
  static inline q16_16_t uq_rpm_to_rad_s(q16_16_t rpm){
      return q16_16_div(q16_16_mul(rpm, UQ_TWO_PI), UQ_60);
  }
-@@ -38,4 +40,4 @@ static inline uint16_t uq_duty_to_permille(q16_16_t duty){
+ static inline uint16_t uq_duty_to_permille(q16_16_t duty){
      return (uint16_t)r;
  }
  #endif
