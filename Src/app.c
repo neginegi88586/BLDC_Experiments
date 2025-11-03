@@ -224,10 +224,10 @@ static inline q16_t speed_pid_to_iq_q16(q16_t omega_ref_step_q16,
 	/* 積分アンチワインドアップ：Iqの範囲に収める */
 	if (s_speed_int_q16 > IQ_MAX_Q16)
 		s_speed_int_q16 = IQ_MAX_Q16;
-	if (s_speed_int_q16 < 0)
-		s_speed_int_q16 = 0; /* 順回転限定なら0～に */
+	if (s_speed_int_q16 < IQ_MIN_Q16)
+		s_speed_int_q16 = IQ_MIN_Q16; /* 順回転限定なら0～に */
 
-	q16_t out = q16_add_sat(q16_mul(SPEED_KP_Q16, e), s_speed_int_q16);
+	q16_t out = q16_add_sat(q16_add_sat(q16_mul(SPEED_KP_Q16, e), s_speed_int_q16), s_speed_diff_q16);
 
 	/* 出力リミット */
 	if (out > IQ_MAX_Q16)
