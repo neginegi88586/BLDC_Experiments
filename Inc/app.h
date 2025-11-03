@@ -8,12 +8,10 @@
 #ifndef APP_H
 #define APP_H
 
-#include <stdint.h>
+#include "fixed_q16.h"
 
-
+void sincos_q16(q16_t th, q16_t *s, q16_t *c);
 void APP_Init(void);
 void APP_Step(void);
-void APP_VoltageConv(void);
-void APP_CurrentConv(void);
 
 #endif

@@ -36,7 +36,7 @@ void FW_InitClock(void)
 	RCC->CR |= RCC_CR_HSEON;
 	while((RCC->CR) & RCC_CR_HSERDY)
 	{
-		// 何もしない
+		/* 何もしない */
 	}
 
 	RCC->PLLCFGR |= RCC_PLLCFGR_PLLSRC;
@@ -53,13 +53,13 @@ void FW_InitClock(void)
 	RCC->PLLCFGR &= (~(15 << RCC_PLLCFGR_PLLQ_Pos));
 	RCC->PLLCFGR |= (7 << RCC_PLLCFGR_PLLQ_Pos);
 
-	RCC->CFGR |= (5 << RCC_CFGR_PPRE1_Pos);	// 4分周
-	RCC->CFGR |= (4 << RCC_CFGR_PPRE2_Pos);	// 2分周
+	RCC->CFGR |= (5 << RCC_CFGR_PPRE1_Pos);	/* 4分周 */
+	RCC->CFGR |= (4 << RCC_CFGR_PPRE2_Pos);	/* 2分周 */
 
 	RCC->CR |= RCC_CR_PLLON;
 	while((RCC->CR) & RCC_CR_PLLRDY)
 	{
-		// 何もしない
+		/* 何もしない */
 	}
 
 	uint32_t tmp = (RCC->CFGR);
@@ -68,7 +68,7 @@ void FW_InitClock(void)
 	RCC->CFGR = tmp;
 	while(((RCC->CFGR) & RCC_CFGR_SWS) == RCC_CFGR_SWS_PLL)
 	{
-		// 何もしない
+		/* 何もしない */
 	}
 
 	SystemCoreClockUpdate();
@@ -100,46 +100,46 @@ void FW_TIM1_InitPWM(void)
 
 	TIM1->CR1 &= ~TIM_CR1_DIR;
 	TIM1->CR1 &= ~TIM_CR1_CMS;
-	TIM1->CR1 |= (1 << TIM_CR1_CMS_Pos); // center-aligned mode 1
+	TIM1->CR1 |= (1 << TIM_CR1_CMS_Pos); /* center-aligned mode 1 */
 	TIM1->CR1 |= TIM_CR1_ARPE;
 
-	// 出力比較: CH1..3 = PWM1 + preload
+	/* 出力比較: CH1..3 = PWM1 + preload */
 	TIM1->CCMR1 = 0;
 	TIM1->CCMR1 |= (6<<TIM_CCMR1_OC1M_Pos)|TIM_CCMR1_OC1PE;
 	TIM1->CCMR1 |= (6<<TIM_CCMR1_OC2M_Pos)|TIM_CCMR1_OC2PE;
 	TIM1->CCMR2 = 0;
 	TIM1->CCMR2 |= (6<<TIM_CCMR2_OC3M_Pos)|TIM_CCMR2_OC3PE;
 
-	// CH4 は内部トリガ用 (OC4REF)。ピン出力は使わない＝CC4Eは後で0のまま。
-	// ここでは強制アクティブ + preload で基準パルスを作る例
+	/* CH4 は内部トリガ用 (OC4REF)。ピン出力は使わない＝CC4Eは後で0のまま。 */
+	/* ここでは強制アクティブ + preload で基準パルスを作る例 */
 	TIM1->CCMR2 |= (7<<TIM_CCMR2_OC4M_Pos)|TIM_CCMR2_OC4PE;
 
-	// デューティ初期値（50%で開始推奨）
+	/* デューティ初期値（50%で開始推奨） */
 	TIM1->CCR1 = TIM1_ARR/2;
 	TIM1->CCR2 = TIM1_ARR/2;
 	TIM1->CCR3 = TIM1_ARR/2;
 
-	// --- CCER: メイン＋コンプリメンタリを両方有効化 ---
-	// 極性はまず非反転（H=ON）で開始。必要なら後述の「極性」参照。
+	/* --- CCER: メイン＋コンプリメンタリを両方有効化 --- */
+	/* 極性はまず非反転（H=ON）で開始。必要なら後述の「極性」参照。 */
 	TIM1->CCER = 0;
-        TIM1->CCER |= TIM_CCER_CC1E | TIM_CCER_CC1NE;  // CH1/CH1N
-        TIM1->CCER |= TIM_CCER_CC2E | TIM_CCER_CC2NE;  // CH2/CH2N
-        TIM1->CCER |= TIM_CCER_CC3E | TIM_CCER_CC3NE;  // CH3/CH3N
-        // CH4ピンは無効のまま（OC4REFは内部利用）
-       /* 極性：アクティブロー（論理0=ON）に設定する */
-       TIM1->CCER |= (TIM_CCER_CC1P | TIM_CCER_CC1NP
-                   |  TIM_CCER_CC2P | TIM_CCER_CC2NP
-                   |  TIM_CCER_CC3P | TIM_CCER_CC3NP);
-       /* 停止時のアイドル出力も LOW=OFF へ統一（OISx=0/OISxN=0）*/
-       TIM1->CR2 &= ~(TIM_CR2_OIS1|TIM_CR2_OIS1N|TIM_CR2_OIS2|TIM_CR2_OIS2N|TIM_CR2_OIS3|TIM_CR2_OIS3N);
+	TIM1->CCER |= TIM_CCER_CC1E | TIM_CCER_CC1NE;  // CH1/CH1N
+	TIM1->CCER |= TIM_CCER_CC2E | TIM_CCER_CC2NE;  // CH2/CH2N
+	TIM1->CCER |= TIM_CCER_CC3E | TIM_CCER_CC3NE;  // CH3/CH3N
+	/* CH4ピンは無効のまま（OC4REFは内部利用） */
+	/* 極性：アクティブロー（論理0=ON）に設定する */
+	TIM1->CCER |= (TIM_CCER_CC1P | TIM_CCER_CC1NP
+			|  TIM_CCER_CC2P | TIM_CCER_CC2NP
+			|  TIM_CCER_CC3P | TIM_CCER_CC3NP);
+	/* 停止時のアイドル出力も LOW=OFF へ統一（OISx=0/OISxN=0） */
+	TIM1->CR2 &= ~(TIM_CR2_OIS1|TIM_CR2_OIS1N|TIM_CR2_OIS2|TIM_CR2_OIS2N|TIM_CR2_OIS3|TIM_CR2_OIS3N);
 
-        // --- TRGO: OC4REF を外部へ（TIM3ブリッジ・ADC用） ---
-        TIM1->CR2 &= ~TIM_CR2_MMS;
-        TIM1->CR2 |=  (7<<TIM_CR2_MMS_Pos);  // TRGO = OC4REF
+	/* --- TRGO: OC4REF を外部へ（TIM3ブリッジ・ADC用） --- */
+	TIM1->CR2 &= ~TIM_CR2_MMS;
+	TIM1->CR2 |=  (7<<TIM_CR2_MMS_Pos);  /* TRGO = OC4REF */
 
 	TIM1->BDTR = 0;
 	TIM1->BDTR |= (DTG_TICKS << TIM_BDTR_DTG_Pos);
-	TIM1->BDTR |= TIM_BDTR_OSSR | TIM_BDTR_OSSI;   // ★強く推奨（停止/ブレークでOISレベルを適用）
+	TIM1->BDTR |= TIM_BDTR_OSSR | TIM_BDTR_OSSI;   /* ★強く推奨（停止/ブレークでOISレベルを適用）*/
 
 	TIM1->BDTR |= TIM_BDTR_MOE;
 }
@@ -157,25 +157,25 @@ void FW_TIM2_Init(void)
 
 void FW_TIM3_InitBridge(void)
 {
-	// TIM1: TRGO=OC4REF（firmware内のInjected初期化で設定）
+	/* TIM1: TRGO=OC4REF（firmware内のInjected初期化で設定）*/
 	TIM3->PSC = 0;
 	TIM3->ARR = 1;
 
 	TIM3->SMCR &= ~(TIM_SMCR_TS | TIM_SMCR_SMS);
-	TIM3->SMCR |= (0 << TIM_SMCR_TS_Pos); // TS = ITR0 (多くのF4で TIM1)
-	TIM3->SMCR |= (6 << TIM_SMCR_SMS_Pos); // Trigger mode: TRGI↑でUG
+	TIM3->SMCR |= (0 << TIM_SMCR_TS_Pos); /*TS = ITR0 (多くのF4で TIM1)*/
+	TIM3->SMCR |= (6 << TIM_SMCR_SMS_Pos); /*Trigger mode: TRGI↑でUG*/
 
 	TIM3->CR2 &= ~TIM_CR2_MMS;
-	TIM3->CR2 |= (2 << TIM_CR2_MMS_Pos); // TRGO=Update
+	TIM3->CR2 |= (2 << TIM_CR2_MMS_Pos); /* TRGO=Update*/
 
 	TIM3->EGR |= TIM_EGR_UG;
 }
 
 void FW_TIM7_Init(void)
 {
-	ENC_Init(&s_enc, ENC_STEP_Q31, ENC_MIN_Q31, ENC_MAX_Q31);
+	ENC_Init(&s_enc, ENC_STEP_Q16, ENC_MIN_Q16, ENC_MAX_Q16);
 
-	TIM7->PSC = 42 - 1;
+	TIM7->PSC = 420 - 1;
 	TIM7->ARR = 1000 - 1;
 
 	TIM7->DIER = 0x00000001;
@@ -207,7 +207,7 @@ void FW_ADC12_InitDualRegular_TIM3_TRGO(void)
 
 	ADC1->CR2 &= ~(ADC_CR2_EXTSEL | ADC_CR2_EXTEN);
 	ADC1->CR2 |= (ADC1_EXTSEL_TIM3_TRGO << ADC_CR2_EXTSEL_Pos);
-	ADC1->CR2 |= (1 << ADC_CR2_EXTEN_Pos); // Rising
+	ADC1->CR2 |= (1 << ADC_CR2_EXTEN_Pos); /* Rising */
 
 	ADC1->CR2 |= ADC_CR2_DMA | ADC_CR2_DDS;
 
@@ -216,25 +216,25 @@ void FW_ADC12_InitDualRegular_TIM3_TRGO(void)
 
 void FW_ADC1_InitInjected_TIM1_CC4(void)
 {
-// CC4: 内部OC4REFのみ生成
+	/* CC4: 内部OC4REFのみ生成 */
 	TIM1->CCMR2 &= ~TIM_CCMR2_OC4M;
 	TIM1->CCMR2 |= (7 << TIM_CCMR2_OC4M_Pos) | TIM_CCMR2_OC4PE;
 
-// TIM1 TRGO = OC4REF（TIM3ブリッジにも有効）
+	/* TIM1 TRGO = OC4REF（TIM3ブリッジにも有効） */
 	TIM1->CR2 &= ~TIM_CR2_MMS;
 	TIM1->CR2 |= (7 << TIM_CR2_MMS_Pos);
 
-// Injected設定
+	/* Injected設定 */
 	ADC1->JSQR = 0;
-	ADC1->JSQR |= (3 << 20); // JL=0（1変換）
-	ADC1->JSQR |= (ADC_CH_V_CC << 0); // 初期は相A（アプリで都度切替）
-	ADC1->JSQR |= (ADC_CH_V_U << 5); // 初期は相A（アプリで都度切替）
-	ADC1->JSQR |= (ADC_CH_V_V << 10); // 初期は相A（アプリで都度切替）
-	ADC1->JSQR |= (ADC_CH_V_W << 15); // 初期は相A（アプリで都度切替）
+	ADC1->JSQR |= (3 << 20);
+	ADC1->JSQR |= (ADC_CH_V_CC << 0);
+	ADC1->JSQR |= (ADC_CH_V_U << 5);
+	ADC1->JSQR |= (ADC_CH_V_V << 10);
+	ADC1->JSQR |= (ADC_CH_V_W << 15);
 
 	ADC1->CR2 &= ~(ADC_CR2_JEXTSEL | ADC_CR2_JEXTEN);
 	ADC1->CR2 |= (ADC1_JEXTSEL_TIM1_CC4 << ADC_CR2_JEXTSEL_Pos);
-	ADC1->CR2 |= (1 << ADC_CR2_JEXTEN_Pos); // Rising
+	ADC1->CR2 |= (1 << ADC_CR2_JEXTEN_Pos); /* Rising */
 
 	ADC1->CR1 |= ADC_CR1_JEOCIE;
 
@@ -255,8 +255,8 @@ void FW_DMA_InitForADC(void)
 
 	DMA2_Stream0->CR = (0 << DMA_SxCR_CHSEL_Pos) |
 	DMA_SxCR_PL_1 |
-	DMA_SxCR_MSIZE_0 | // 16bit
-			DMA_SxCR_PSIZE_0 | // 16bit
+	DMA_SxCR_MSIZE_0 | /* 16bit */
+			DMA_SxCR_PSIZE_0 | /* 16bit */
 			DMA_SxCR_MINC |
 			DMA_SxCR_CIRC |
 			DMA_SxCR_TCIE |
@@ -297,7 +297,7 @@ void FW_SetSampleMarker(uint16_t ccr4)
 }
 
 
-// ===== 割り込み =====
+/* ===== 割り込み ===== */
 void DMA2_Stream0_IRQHandler(void);
 void DMA2_Stream0_IRQHandler(void)
 {
@@ -338,11 +338,11 @@ void TIM2_IRQHandler(void)
 }
 
 void TIM7_IRQHandler(void);
-void TIM7_IRQHandler(void) // 1〜2ms周期で呼ばれるタイマ割り込み
+void TIM7_IRQHandler(void) /* 1〜2ms周期で呼ばれるタイマ割り込み */
 {
 	TIM7->SR = 0x00000000;
 
-    // 例：GPIOAのbit0/bit1をA/B相とする場合
+    /* 例：GPIOAのbit0/bit1をA/B相とする場合 */
     uint8_t pin_a = (GPIOB->IDR >> 8) & 1;
     uint8_t pin_b = (GPIOB->IDR >> 9) & 1;
 
