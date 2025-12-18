@@ -287,7 +287,7 @@ void APP_OnVphase(uint16_t *v_adc)
 void APP_OnVoltage(uint16_t *v_adc)
 {
 	/*
-	 * ここでは v_adc[0] を PA0(1.235V) と仮定して較正更新を行う。
+	 * ここでは v_adc[0] を PA0(1.235V)と仮定して較正更新を行う。
 	 * プロジェクトでの実CH割付に合わせてインデックスを調整すること。
 	 */
 	s_voltage[0] = *v_adc;
