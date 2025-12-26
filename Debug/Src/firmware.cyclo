@@ -18,7 +18,7 @@ C:/Users/idune/STM32CubeIDE/workspace_1.19.0/BLDC_Experiments/Inc/Sys/core_cm4.h
 ../Src/firmware.c:319:6:ADC_IRQHandler	2
 ../Src/firmware.c:333:6:TIM2_IRQHandler	1
 ../Src/firmware.c:341:6:TIM7_IRQHandler	1
-../Src/firmware.c:353:6:HardFault_Handler	1
-../Src/firmware.c:362:6:MemManage_Handler	1
-../Src/firmware.c:371:6:BusFault_Handler	1
-../Src/firmware.c:380:6:UsageFault_Handler	1
+../Src/firmware.c:349:6:HardFault_Handler	1
+../Src/firmware.c:358:6:MemManage_Handler	1
+../Src/firmware.c:367:6:BusFault_Handler	1
+../Src/firmware.c:376:6:UsageFault_Handler	1

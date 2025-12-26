@@ -342,11 +342,7 @@ void TIM7_IRQHandler(void) /* 1〜2ms周期で呼ばれるタイマ割り込み 
 {
 	TIM7->SR = 0x00000000;
 
-    /* 例：GPIOAのbit0/bit1をA/B相とする場合 */
-    uint8_t pin_a = (GPIOB->IDR >> 8) & 1;
-    uint8_t pin_b = (GPIOB->IDR >> 9) & 1;
-
-    ENC_Scan(&s_enc, pin_a, pin_b);
+    ENC_Scan(&s_enc, ((uint8_t)((GPIOB->IDR & ((uint16_t)0x300)) >> 8)));
 }
 
 void HardFault_Handler(void);

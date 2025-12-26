@@ -19,29 +19,26 @@ void ENC_Init(Encoder_t *enc, q16_t step_q16, q16_t min_q16, q16_t max_q16)
     enc->min_q16 = min_q16;
     enc->max_q16 = max_q16;
     enc->current_q16 = 0;
-    enc->stable_count = 0;
-    enc->debounce = 0;
 }
 
 // ---- A/B入力から回転方向を算出する ----
 // 呼び出し周期: 約1〜2ms（タイマ割り込み内）
-void ENC_Scan(Encoder_t *enc, uint8_t pin_a, uint8_t pin_b)
+void ENC_Scan(Encoder_t *enc, const uint8_t encoder_data)
 {
 	static uint8_t buff0 = 0, buff1 = 0, buff2 = 0;
-    uint8_t ab = ((pin_a ? 0 : 1) << 1) | (pin_b ? 0 : 1);
-    uint8_t prev = buff2;
+    uint8_t prev = (buff2 & 1);
 
-    buff0 = ab;
+    buff0 = encoder_data;
     buff2 &= (buff1 | buff0);
     buff2 |= (buff1 & buff0);
     buff1 = buff0;
 
 
-    if(prev != buff2)
+    if(prev != (buff2 & 1))
     {
     	if((buff2 & 1) != 0)
     	{
-    		if((buff2 & 2) != 0)
+    		if((buff2 & 2) == 0)
     		{
     			enc->counter++;
     		}
